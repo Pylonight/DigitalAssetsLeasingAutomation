@@ -19,8 +19,11 @@ contract Billboard {
 	uint public PRICERISEFACTORU = 11;	// numerator of factor which is the smallest ratio to raise the price
 	uint public PRICERISEFACTORD = 10;	// dividor of factor which is the smallest ratio to raise the price
 
+	uint public gotoUp;
+	uint public gotoDown;
+
 	// initialization
-	function Billboard()
+	constructor()
 	    public
 	{
 		owner = msg.sender;
@@ -30,6 +33,9 @@ contract Billboard {
 		isIdle = true;
 		isFirstAder = true;
 		deposit = 0;
+
+		gotoUp = 0;
+		gotoDown = 0;
 	}
 
 	// only callable when the billboard is occupied
@@ -44,6 +50,11 @@ contract Billboard {
 		_;
 	}
 
+	modifier onlyOwnerCanCall() {
+		require(msg.sender == owner);
+		_;
+	}
+
 	// make an offer with newAd as the ad to install
 	// returns whether it succeeds to rent the ad
 	function Offer(string newAd)
@@ -54,14 +65,20 @@ contract Billboard {
 		// the last lease term already ends
 		// but no one calls the expire()
 		if (!isIdle && now >= expireTime) {
-			revert();
-			return false;
-			// isIdle = true;
-			// isFirstAder = true;
-			// currentPrice /= PRICEDROPFACTOR;
-			// if (currentPrice < rigidPrice) {
-			// 	currentPrice = rigidPrice;
-			// }
+			//revert();
+			//return false;
+			isIdle = true;
+			isFirstAder = true;
+			currentPrice /= PRICEDROPFACTOR;
+			if (currentPrice < rigidPrice) {
+				currentPrice = rigidPrice;
+			}
+
+			uint reward = deposit/2;
+			owner.transfer(reward);
+			deposit -= reward;
+
+			expireTime = now + 10 minutes;
 		}
 
 		// install the new ad, kick-out the current lessee
@@ -70,9 +87,9 @@ contract Billboard {
 
 			isIdle = false;
 			uint toOwner = 0;
+			uint delta = msg.value-lastPrice;
 			if (!isFirstAder) {
 				// if there is a current lessee
-				uint delta = msg.value-lastPrice;
 				// this amount of tokens is transferred to owner
 				// if there is deposit, then tranfer all deposit to owner
 				// as we now have new deposit
@@ -81,14 +98,20 @@ contract Billboard {
 				// lastPrice as payment back, delta/REWARDFACTOR as reward
 				ader.transfer(lastPrice+delta/REWARDFACTOR);
 				// deposit kept in case price drops
-				deposit = msg.value-delta/REVENUEFACTOR-delta/REWARDFACTOR;
+				deposit = delta-delta/REVENUEFACTOR-delta/REWARDFACTOR;
+
+				gotoUp = 1;
+				gotoDown = 0;
 			} else {
 				// if there is no current lessee
 				// owner will get reward part along with revenue part
 				toOwner = msg.value/REWARDFACTOR+msg.value/REVENUEFACTOR;
 				// keep this amount as reserved in case price drops
-				deposit = msg.value-toOwner;
+				deposit = delta-toOwner;
 				isFirstAder = false;
+
+				gotoUp = 0;
+				gotoDown = 1;
 			}
 			// install the new ad
 			ader = msg.sender;
@@ -98,7 +121,7 @@ contract Billboard {
 			currentPrice = msg.value*PRICERISEFACTORU/PRICERISEFACTORD;
 
 			// for experiment, lease term is 2 minutes long only
-			expireTime = now + 2 minutes;
+			expireTime = now + 10 minutes;
 			return true;
 		} else {
 			revert();
@@ -126,7 +149,22 @@ contract Billboard {
 		deposit -= reward;
 
 		// for experiment, lease term is 2 minutes long only
-		expireTime = now + 2 minutes;
+		expireTime = now + 10 minutes;
+		return true;
+	}
+
+	// TOREMOVE: shortcut to reset the bollboard only for experimental use
+	function Reset()
+		public
+		onlyOwnerCanCall
+		returns(bool)
+	{
+		currentPrice = rigidPrice;
+		expireTime = now;
+		isIdle = true;
+		isFirstAder = true;
+		owner.transfer(deposit);
+		deposit = 0;
 		return true;
 	}
 
