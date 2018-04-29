@@ -178,5 +178,6 @@ void transfer(address from, address to, tokenType value) {
 }
 
 int main() {
+	
 	return 0;
 }
