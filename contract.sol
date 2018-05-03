@@ -139,6 +139,7 @@ contract Billboard {
 		isIdle = true;
 		isFirstAder = true;
 		currentPrice /= PRICEDROPFACTOR;
+		lastPrice = 0;
 		// can never drop below reserved price, says 1 Ether
 		if (currentPrice < rigidPrice) {
 			currentPrice = rigidPrice;
@@ -160,6 +161,7 @@ contract Billboard {
 		returns(bool)
 	{
 		currentPrice = rigidPrice;
+		lastPrice = 0;
 		expireTime = now;
 		isIdle = true;
 		isFirstAder = true;
